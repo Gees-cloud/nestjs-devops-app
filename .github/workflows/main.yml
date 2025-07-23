@@ -1,0 +1,65 @@
+name: Deploy New Project to AWS EC2
+
+on:
+  push:
+    branches:
+      - main # This workflow runs on pushes to the 'main' branch
+
+env:
+  AWS_REGION: us-east-1 # Your AWS region (e.g., us-east-1, eu-west-1)
+  ECR_REGISTRY:  # http://171294308390.dkr.ecr.us-east-1.amazonaws.com/your-nestjs-app 
+  ECR_REPOSITORY: your-nestjs-app # nestjs-devops-app
+  EC2_INSTANCE_IP: YOUR_EC2_PUBLIC_IP # 34.224.23.108
+  SSH_USER: ec2-user # Default user for Amazon Linux 2 AMI
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest # Use a fresh Ubuntu runner
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Action to checkout your repository code
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4 # Action to configure AWS CLI
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }} # Uses secret from GitHub
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # Uses secret from GitHub
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2 # Action to log in to ECR
+
+      - name: Build and push Docker image
+        env:
+          IMAGE_TAG: ${{ github.sha }} # Use Git SHA as image tag for uniqueness
+        run: |
+          # Build the Docker image
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
+          # Push the Docker image to ECR
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master # Action to connect via SSH and run commands
+        with:
+          host: ${{ env.EC2_INSTANCE_IP }} # Your EC2 instance's public IP
+          username: ${{ env.SSH_USER }} # SSH user (e.g., ec2-user for Amazon Linux)
+          key: ${{ secrets.SSH_PRIVATE_KEY }} # Your SSH private key from GitHub Secrets
+          script: |
+            # Log in to ECR from the EC2 instance (using EC2's IAM role for authentication)
+            # This assumes your EC2 instance has an IAM role with ECR read-only access
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+
+            # Stop and remove the old container if it's running or exists
+            # Replace 'your-app-container-name' with a unique name for your running container
+            docker stop your-app-container-name || true
+            docker rm your-app-container-name || true
+
+            # Pull the latest Docker image
+            docker pull ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+            # Run the new container
+            # Adjust -p 80:3000 if your app listens on a different port (e.g., 80:80)
+            # Adjust 'nestjs-app-container' to match the stop/rm command
+            docker run -d -p 80:3000 --name your-app-container-name ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
