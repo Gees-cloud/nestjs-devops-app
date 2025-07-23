@@ -6,11 +6,12 @@ on:
       - main # This workflow runs on pushes to the 'main' branch
 
 env:
-  AWS_REGION: us-east-1 # Your AWS region (e.g., us-east-1, eu-west-1)
-  ECR_REGISTRY:  # http://171294308390.dkr.ecr.us-east-1.amazonaws.com/your-nestjs-app 
-  ECR_REPOSITORY:  # nestjs-devops-app
-  EC2_INSTANCE_IP:  # 34.224.23.108
+  AWS_REGION: us-east-1 
+  ECR_REGISTRY: http://171294308390.dkr.ecr.us-east-1.amazonaws.com/your-nestjs-app
+  ECR_REPOSITORY: nestjs-devops-app
+  EC2_INSTANCE_IP: 34.224.23.108
   SSH_USER: ec2-user # Default user for Amazon Linux 2 AMI
+  IMAGE_TAG: latest # Changed from github.sha to 'latest' for simpler tagging
 
 jobs:
   build-and-deploy:
@@ -32,8 +33,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2 # Action to log in to ECR
 
       - name: Build and push Docker image
-        env:
-          IMAGE_TAG: ${{ github.sha }} # Use Git SHA as image tag for uniqueness
+        # env: # Removed IMAGE_TAG from here as it's now in global env
         run: |
           # Build the Docker image
           docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
