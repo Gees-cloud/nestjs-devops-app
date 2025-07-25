@@ -1,30 +1,32 @@
- # Stage 1: Build the application
-    FROM node:18-alpine AS builder
+# Stage 1: Build the application
+FROM node:18-alpine AS builder
 
-    WORKDIR /app
+WORKDIR /app
 
-    COPY package*.json ./
-    # Install dependencies
-    RUN npm install
+COPY package*.json ./
+# Install build tools required for some npm packages (e.g., those with native dependencies)
+RUN apk add --no-cache build-base python3
 
-    COPY . .
+# Install dependencies
+RUN npm install
 
-    # Build the NestJS application
-    RUN npm run build
+COPY . .
 
-    # Stage 2: Create the final production image
-    FROM node:18-alpine
+# Build the NestJS application
+RUN npm run build
 
-    WORKDIR /app
+# Stage 2: Create the final production image
+FROM node:18-alpine
 
-    # Copy only necessary files from the builder stage
-    COPY --from=builder /app/node_modules ./node_modules
-    COPY --from=builder /app/dist ./dist
-    COPY --from=builder /app/package.json ./package.json
+WORKDIR /app
 
-    # Expose the port your NestJS app listens on (default is 3000)
-    EXPOSE 3000
+# Copy only necessary files from the builder stage
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./package.json
 
-    # Command to run the NestJS application
-    CMD ["node", "dist/main"]
-    
+# Expose the port your NestJS app listens on (default is 3000)
+EXPOSE 3000
+
+# Command to run the NestJS application
+CMD ["node", "dist/main"]
