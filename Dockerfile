@@ -1,14 +1,17 @@
 # Stage 1: Build the application
-FROM node:18-alpine AS builder
+# Changed base image from node:18-alpine to node:18 (Debian-based)
+# This image generally has better compatibility with native npm dependencies.
+FROM node:18 AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
-# Install a more comprehensive set of build tools required for npm packages with native dependencies.
-# This includes git, make, g++, gcc, libc-dev, python3, linux-headers, and libtool.
-RUN apk add --no-cache git make g++ gcc python3 libc-dev linux-headers libtool
+
+# Clear npm cache to prevent potential issues
+RUN npm cache clean --force
 
 # Install dependencies
+# Removed apk add as build tools are often pre-installed or easier to handle on Debian base.
 RUN npm install
 
 COPY . .
@@ -17,7 +20,8 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Create the final production image
-FROM node:18-alpine
+# Using node:18-slim for a smaller final image, while still being Debian-based.
+FROM node:18-slim
 
 WORKDIR /app
 
