@@ -4,9 +4,9 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-# Install a more comprehensive set of build tools required for npm packages with native dependencies
-# This includes git, make, g++, gcc, and libc-dev, along with python3.
-RUN apk add --no-cache git make g++ gcc python3 libc-dev
+# Install a more comprehensive set of build tools required for npm packages with native dependencies.
+# This includes git, make, g++, gcc, libc-dev, python3, linux-headers, and libtool.
+RUN apk add --no-cache git make g++ gcc python3 libc-dev linux-headers libtool
 
 # Install dependencies
 RUN npm install
